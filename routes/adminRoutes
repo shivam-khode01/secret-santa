@@ -1,0 +1,130 @@
+const express = require('express');
+const router = express.Router();
+const User = require('../models/user');
+const Group = require('../models/group'); // Import Group model
+const isAuthenticated = require('../middleware/authentication');
+const nodemailer = require('nodemailer');
+
+// Setup Nodemailer transporter using gmail (adjust as needed)
+const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+        user: process.env.EMAIL_USER, // set EMAIL_USER in your .env
+        pass: process.env.EMAIL_PASS  // set EMAIL_PASS in your .env
+    }
+});
+
+// Admin Dashboard
+router.get('/dashboard', isAuthenticated, async (req, res) => {
+    try {
+        const users = await User.find().populate('santaFor').populate('group');
+        const groups = await Group.find().populate('members');
+        res.render('admin/dashboard', { title: 'Admin Dashboard', users, groups });
+    } catch (err) {
+        console.error(err);
+        res.render('error', { title: 'Error', error: 'Could not load dashboard.' });
+    }
+});
+
+// Pair Users
+router.post('/pair', isAuthenticated, async (req, res) => {
+    console.log("DEBUG: /admin/pair route called");
+    console.log("DEBUG: Request body:", req.body);
+
+    try {
+        const users = await User.find();
+        console.log("DEBUG: Users fetched from DB:", users);
+
+        // Shuffle users randomly
+        const shuffledUsers = users.sort(() => 0.5 - Math.random());
+        console.log("DEBUG: Shuffled users:", shuffledUsers);
+
+        for (let i = 0; i < shuffledUsers.length; i++) {
+            const santa = shuffledUsers[i];
+            const recipient = shuffledUsers[(i + 1) % shuffledUsers.length];
+            console.log(`DEBUG: Pairing ${santa.name} (${santa._id}) with ${recipient.name} (${recipient._id})`);
+            santa.santaFor = recipient._id;
+            await santa.save();
+        }
+
+        const updatedUsers = await User.find().populate('santaFor');
+        console.log("DEBUG: Updated users after pairing:", updatedUsers);
+
+        // Send notifications to all paired users
+        for (const user of updatedUsers) {
+            if (!user.email || !user.santaFor) continue; // Skip if no email or pairing available
+
+            const recipient = user.santaFor;
+            const mailOptions = {
+                from: process.env.EMAIL_USER,
+                to: user.email,
+                subject: 'Your Secret Santa Pairing',
+                text: `Hello ${user.name},
+
+You have been paired with ${recipient.name}!
+
+Hint provided: ${recipient.hint ? recipient.hint : 'No hint provided'}
+
+Happy gifting!`
+            };
+
+            transporter.sendMail(mailOptions, (error, info) => {
+                if (error) {
+                    console.error("DEBUG: Error sending email to", user.email, error);
+                } else {
+                    console.log("DEBUG: Email sent to " + user.email + ": " + info.response);
+                }
+            });
+        }
+
+        res.json({ users: updatedUsers });
+    } catch (err) {
+        console.error("DEBUG: Error in pairing route:", err);
+        res.status(500).json({ error: 'Could not pair users.' });
+    }
+});
+
+// Create Group
+router.post('/groups', isAuthenticated, async (req, res) => {
+    const { name, code } = req.body;
+    try {
+        const existingGroup = await Group.findOne({ code });
+        if (existingGroup) {
+            return res.status(400).json({ error: 'Group code already exists.' });
+        }
+
+        const newGroup = new Group({ name, code });
+        await newGroup.save();
+        res.json({ message: 'Group created successfully', group: newGroup });
+    } catch (err) {
+        console.error("DEBUG: Error creating group:", err);
+        res.status(500).json({ error: 'Could not create group.' });
+    }
+});
+
+// Delete Group
+router.delete('/groups/:id', isAuthenticated, async (req, res) => {
+    try {
+        const groupId = req.params.id;
+        const group = await Group.findByIdAndDelete(groupId);
+        if (!group) {
+            return res.status(404).json({ error: 'Group not found' });
+        }
+
+        // Remove group reference from users
+        await User.updateMany({ group: groupId }, { $unset: { group: "" } });
+
+        res.json({ message: 'Group deleted successfully' });
+    } catch (err) {
+        console.error("DEBUG: Error deleting group:", err);
+        res.status(500).json({ error: 'Could not delete group' });
+    }
+});
+
+// Other admin routes...
+// Pairing Control
+router.post('/pairs/regenerate', isAuthenticated, (req, res) => {
+    res.send('Pairs regenerated');
+});
+
+module.exports = router;

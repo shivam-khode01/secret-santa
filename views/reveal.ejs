@@ -1,0 +1,8 @@
+<section class="container">
+    <h2>Secret Santa Reveal 🎉</h2>
+    <ul>
+        <% pairs.forEach(pair => { %>
+            <li><%= pair.santa %> is the Secret Santa for <%= pair.recipient %></li>
+        <% }) %>
+    </ul>
+</section>

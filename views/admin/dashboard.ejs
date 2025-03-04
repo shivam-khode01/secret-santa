@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/styles.css"> <!-- Custom styles -->
+</head>
+<body>
+    <div class="container">
+        <h1 class="text-center">Admin Dashboard</h1>
+        <h2 class="mt-4">Participants</h2>
+        <ul class="list-group" id="participants-list">
+            <% users.forEach(user => { %>
+                <li class="list-group-item">
+                    <strong><%= user.name %></strong> → <%= user.santaFor ? user.santaFor.name : 'Not assigned yet' %>
+                    <button class="btn btn-danger btn-sm float-right delete-user" data-user-id="<%= user._id %>">Delete</button>
+                </li>
+            <% }) %>
+        </ul>
+        <button id="pair-button" class="btn btn-primary btn-block mt-4">Pair</button>
+
+        <h2 class="mt-4">Groups</h2>
+        <ul class="list-group" id="groups-list">
+            <% groups.forEach(group => { %>
+                <li class="list-group-item">
+                    <strong><%= group.name %></strong> (Code: <%= group.code %>)
+                    <button class="btn btn-danger btn-sm float-right delete-group" data-group-id="<%= group._id %>">Delete</button>
+                </li>
+            <% }) %>
+        </ul>
+        <form id="create-group-form" class="mt-4">
+            <div class="form-group">
+                <label for="group-name">Group Name</label>
+                <input type="text" class="form-control" id="group-name" required>
+            </div>
+            <div class="form-group">
+                <label for="group-code">Group Code</label>
+                <input type="text" class="form-control" id="group-code" required>
+            </div>
+            <button type="submit" class="btn btn-primary btn-block">Create Group</button>
+        </form>
+    </div>
+
+    <script>
+        document.querySelectorAll('.delete-user').forEach(button => {
+            button.addEventListener('click', async (event) => {
+                const userId = event.target.getAttribute('data-user-id');
+                if (confirm('Are you sure you want to delete this user?')) {
+                    try {
+                        const response = await fetch(`/admin/users/delete/${userId}`, {
+                            method: 'DELETE',
+                            headers: { 'Content-Type': 'application/json' }
+                        });
+                        if (response.ok) {
+                            alert('User deleted successfully');
+                            location.reload();
+                        } else {
+                            alert('Failed to delete user');
+                        }
+                    } catch (error) {
+                        console.error('Error:', error);
+                        alert('An error occurred while deleting the user');
+                    }
+                }
+            });
+        });
+
+        document.getElementById('pair-button').addEventListener('click', async () => {
+            console.log("DEBUG: Pair button clicked");
+            try {
+                const response = await fetch('/admin/pair', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                console.log("DEBUG: Response status:", response.status);
+                if (response.ok) {
+                    const result = await response.json();
+                    console.log("DEBUG: Response JSON received:", result);
+                    const participantsList = document.getElementById('participants-list');
+                    participantsList.innerHTML = '';
+                    result.users.forEach(user => {
+                        const listItem = document.createElement('li');
+                        listItem.className = 'list-group-item';
+                        listItem.innerHTML = `<strong>${user.name}</strong> → ${user.santaFor ? user.santaFor.name : 'Not assigned yet'}`;
+                        participantsList.appendChild(listItem);
+                    });
+                } else {
+                    console.error("DEBUG: Failed to pair users, response not OK");
+                }
+            } catch (error) {
+                console.error("DEBUG: Error during fetch:", error);
+            }
+        });
+
+        document.querySelectorAll('.delete-group').forEach(button => {
+            button.addEventListener('click', async (event) => {
+                const groupId = event.target.getAttribute('data-group-id');
+                if (confirm('Are you sure you want to delete this group?')) {
+                    try {
+                        const response = await fetch(`/admin/groups/${groupId}`, {
+                            method: 'DELETE',
+                            headers: { 'Content-Type': 'application/json' }
+                        });
+                        if (response.ok) {
+                            alert('Group deleted successfully');
+                            location.reload();
+                        } else {
+                            alert('Failed to delete group');
+                        }
+                    } catch (error) {
+                        console.error('Error:', error);
+                        alert('An error occurred while deleting the group');
+                    }
+                }
+            });
+        });
+
+        document.getElementById('create-group-form').addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const name = document.getElementById('group-name').value;
+            const code = document.getElementById('group-code').value;
+            try {
+                const response = await fetch('/admin/groups', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, code })
+                });
+                if (response.ok) {
+                    alert('Group created successfully');
+                    location.reload();
+                } else {
+                    alert('Failed to create group');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('An error occurred while creating the group');
+            }
+        });
+    </script>
+</body>
+</html>
