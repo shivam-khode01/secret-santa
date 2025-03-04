@@ -3,15 +3,79 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Dashboard</title>
+    <title><%= title %> | Secret Santa Connect</title>
+    <!-- Bootstrap & Custom CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/styles.css">
+    <!-- Favicon -->
+<link rel="icon" type="image/png" href="/images/santa-icon.png">
 </head>
 <body>
-    <h1>Admin Dashboard</h1>
-    <h2>Participants</h2>
-    <ul>
-        <% users.forEach(user => { %>
-            <li><%= user.name %> - <%= user.email %></li>
-        <% }) %>
-    </ul>
-</body>
-</html>
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary fixed-top">
+        <div class="container">
+            <a class="navbar-brand" href="/">
+                <img src="/images/logo-white.png" alt="Secret Santa Connect" height="40">
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="/">Home</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/how-it-works">How It Works</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/register">Join Now</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/login">Login</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+<!-- Main Content -->
+<div class="main-content">
+    <%- body %>
+</div>
+
+<!-- Footer -->
+<footer class="bg-dark text-white py-5">
+    <div class="container">
+        <div class="row">
+            <div class="col-md-4">
+                <h5>Secret Santa Connect</h5>
+                <p>Make gift-giving fun, fair, and memorable with our Secret Santa platform.</p>
+            </div>
+            <div class="col-md-4">
+                <h5>Quick Links</h5>
+                <ul class="list-unstyled">
+                    <li><a href="/register" class="text-white">Create Group</a></li>
+                    <li><a href="/how-it-works" class="text-white">How It Works</a></li>
+                    <li><a href="/contact" class="text-white">Contact Us</a></li>
+                </ul>
+            </div>
+            <div class="col-md-4">
+                <h5>Connect With Us</h5>
+                <div class="social-icons">
+                    <a href="#" class="text-white me-3"><i class="fab fa-facebook"></i></a>
+                    <a href="#" class="text-white me-3"><i class="fab fa-twitter"></i></a>
+                    <a href="#" class="text-white me-3"><i class="fab fa-instagram"></i></a>
+                </div>
+            </div>
+        </div>
+        <hr>
+        <div class="text-center">
+            <p>&copy; 2025 Secret Santa Connect. All Rights Reserved.</p>
+        </div>
+    </div>
+</footer>
+
+<!-- Scripts -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body> </html>
