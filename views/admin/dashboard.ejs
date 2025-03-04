@@ -5,95 +5,172 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin Dashboard</title>
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
-    <link rel="stylesheet" href="/styles.css"> <!-- Custom styles -->
+    <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
     <div class="container">
         <h1 class="text-center">Admin Dashboard</h1>
-        <h2 class="mt-4">Participants</h2>
-        <ul class="list-group" id="participants-list">
-            <% users.forEach(user => { %>
-                <li class="list-group-item">
-                    <strong><%= user.name %></strong> → <%= user.santaFor ? user.santaFor.name : 'Not assigned yet' %>
-                    <button class="btn btn-danger btn-sm float-right delete-user" data-user-id="<%= user._id %>">Delete</button>
-                </li>
-            <% }) %>
-        </ul>
-        <button id="pair-button" class="btn btn-primary btn-block mt-4">Pair</button>
 
-        <h2 class="mt-4">Groups</h2>
-        <ul class="list-group" id="groups-list">
-            <% groups.forEach(group => { %>
-                <li class="list-group-item">
-                    <strong><%= group.name %></strong> (Code: <%= group.code %>)
-                    <button class="btn btn-danger btn-sm float-right delete-group" data-group-id="<%= group._id %>">Delete</button>
-                </li>
-            <% }) %>
-        </ul>
-        <form id="create-group-form" class="mt-4">
-            <div class="form-group">
-                <label for="group-name">Group Name</label>
-                <input type="text" class="form-control" id="group-name" required>
+        <!-- Create New Group Section -->
+        <div class="card mb-4">
+            <div class="card-header">
+                Create New Group
             </div>
-            <div class="form-group">
-                <label for="group-code">Group Code</label>
-                <input type="text" class="form-control" id="group-code" required>
+            <div class="card-body">
+                <form id="create-group-form">
+                    <div class="form-row">
+                        <div class="col-md-4">
+                            <input type="text" class="form-control" id="group-name" placeholder="Group Name" required>
+                        </div>
+                        <div class="col-md-4">
+                            <input type="text" class="form-control" id="group-code" placeholder="Group Code" required>
+                        </div>
+                        <div class="col-md-4">
+                            <button type="submit" class="btn btn-primary btn-block">Create Group</button>
+                        </div>
+                    </div>
+                </form>
             </div>
-            <button type="submit" class="btn btn-primary btn-block">Create Group</button>
-        </form>
+        </div>
+
+        <!-- Users Without Group -->
+        <div class="card mb-4">
+            <div class="card-header">
+                Users Without Group
+            </div>
+            <div class="card-body">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Email</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="ungrouped-users">
+                        <% users.filter(user => !user.group).forEach(user => { %>
+                            <tr>
+                                <td><%= user.name %></td>
+                                <td><%= user.email %></td>
+                                <td>
+                                    <button class="btn btn-danger btn-sm delete-user" data-user-id="<%= user._id %>">Delete</button>
+                                </td>
+                            </tr>
+                        <% }) %>
+                    </tbody>
+                </table>
+                <button id="pair-ungrouped-btn" class="btn btn-warning btn-block">Pair Ungrouped Users</button>
+            </div>
+        </div>
+
+        <!-- Groups Section -->
+        <div class="card">
+            <div class="card-header">
+                Existing Groups
+            </div>
+            <div class="card-body">
+                <% groups.forEach(group => { %>
+                    <div class="card mb-3">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <%= group.name %> 
+                            <div>
+                                <button class="btn btn-primary btn-sm pair-group-btn" data-group-id="<%= group._id %>">
+                                    Pair Group
+                                </button>
+                                <button class="btn btn-danger btn-sm delete-group" data-group-id="<%= group._id %>">
+                                    Delete Group
+                                </button>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <h6>Group Code: <%= group.code %></h6>
+                            <h6>Members: <%= group.members.length %></h6>
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Email</th>
+                                        <th>Secret Santa For</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <% group.members.forEach(member => { %>
+                                        <tr>
+                                            <td><%= member.name %></td>
+                                            <td><%= member.email %></td>
+                                            <td><%= member.santaFor ? member.santaFor.name : 'Not Assigned' %></td>
+                                            <td>
+                                                <button class="btn btn-danger btn-sm remove-user-from-group" 
+                                                    data-user-id="<%= member._id %>" 
+                                                    data-group-id="<%= group._id %>">
+                                                    Remove
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    <% }) %>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                <% }) %>
+            </div>
+        </div>
     </div>
 
     <script>
-        document.querySelectorAll('.delete-user').forEach(button => {
+        // Create Group
+        document.getElementById('create-group-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const name = document.getElementById('group-name').value;
+            const code = document.getElementById('group-code').value;
+
+            try {
+                const response = await fetch('/admin/groups', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, code })
+                });
+
+                const result = await response.json();
+                if (response.ok) {
+                    alert('Group created successfully');
+                    location.reload();
+                } else {
+                    alert(result.error || 'Failed to create group');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('An error occurred');
+            }
+        });
+
+        // Pair Group
+        document.querySelectorAll('.pair-group-btn').forEach(button => {
             button.addEventListener('click', async (event) => {
-                const userId = event.target.getAttribute('data-user-id');
-                if (confirm('Are you sure you want to delete this user?')) {
-                    try {
-                        const response = await fetch(`/admin/users/delete/${userId}`, {
-                            method: 'DELETE',
-                            headers: { 'Content-Type': 'application/json' }
-                        });
-                        if (response.ok) {
-                            alert('User deleted successfully');
-                            location.reload();
-                        } else {
-                            alert('Failed to delete user');
-                        }
-                    } catch (error) {
-                        console.error('Error:', error);
-                        alert('An error occurred while deleting the user');
+                const groupId = event.target.getAttribute('data-group-id');
+                try {
+                    const response = await fetch(`/admin/pair-group/${groupId}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (response.ok) {
+                        alert('Group paired successfully!');
+                        location.reload();
+                    } else {
+                        alert(result.error || 'Failed to pair group');
                     }
+                } catch (error) {
+                    console.error('Pairing error:', error);
+                    alert('An error occurred while pairing the group');
                 }
             });
         });
 
-        document.getElementById('pair-button').addEventListener('click', async () => {
-            console.log("DEBUG: Pair button clicked");
-            try {
-                const response = await fetch('/admin/pair', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' }
-                });
-                console.log("DEBUG: Response status:", response.status);
-                if (response.ok) {
-                    const result = await response.json();
-                    console.log("DEBUG: Response JSON received:", result);
-                    const participantsList = document.getElementById('participants-list');
-                    participantsList.innerHTML = '';
-                    result.users.forEach(user => {
-                        const listItem = document.createElement('li');
-                        listItem.className = 'list-group-item';
-                        listItem.innerHTML = `<strong>${user.name}</strong> → ${user.santaFor ? user.santaFor.name : 'Not assigned yet'}`;
-                        participantsList.appendChild(listItem);
-                    });
-                } else {
-                    console.error("DEBUG: Failed to pair users, response not OK");
-                }
-            } catch (error) {
-                console.error("DEBUG: Error during fetch:", error);
-            }
-        });
-
+        // Delete Group
         document.querySelectorAll('.delete-group').forEach(button => {
             button.addEventListener('click', async (event) => {
                 const groupId = event.target.getAttribute('data-group-id');
@@ -103,40 +180,101 @@
                             method: 'DELETE',
                             headers: { 'Content-Type': 'application/json' }
                         });
+                        
+                        const result = await response.json();
+                        
                         if (response.ok) {
                             alert('Group deleted successfully');
                             location.reload();
                         } else {
-                            alert('Failed to delete group');
+                            alert(result.error || 'Failed to delete group');
                         }
                     } catch (error) {
-                        console.error('Error:', error);
+                        console.error('Delete error:', error);
                         alert('An error occurred while deleting the group');
                     }
                 }
             });
         });
 
-        document.getElementById('create-group-form').addEventListener('submit', async (event) => {
-            event.preventDefault();
-            const name = document.getElementById('group-name').value;
-            const code = document.getElementById('group-code').value;
+        // Remove User from Group
+        document.querySelectorAll('.remove-user-from-group').forEach(button => {
+            button.addEventListener('click', async (event) => {
+                const userId = event.target.getAttribute('data-user-id');
+                const groupId = event.target.getAttribute('data-group-id');
+                
+                if (confirm('Are you sure you want to remove this user from the group?')) {
+                    try {
+                        const response = await fetch(`/admin/remove-user-from-group`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ userId, groupId })
+                        });
+                        
+                        const result = await response.json();
+                        
+                        if (response.ok) {
+                            alert('User removed from group successfully');
+                            location.reload();
+                        } else {
+                            alert(result.error || 'Failed to remove user from group');
+                        }
+                    } catch (error) {
+                        console.error('Remove user error:', error);
+                        alert('An error occurred while removing user from group');
+                    }
+                }
+            });
+        });
+
+        // Pair Ungrouped Users
+        document.getElementById('pair-ungrouped-btn').addEventListener('click', async () => {
             try {
-                const response = await fetch('/admin/groups', {
+                const response = await fetch('/admin/pair-ungrouped', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name, code })
+                    headers: { 'Content-Type': 'application/json' }
                 });
+                
+                const result = await response.json();
+                
                 if (response.ok) {
-                    alert('Group created successfully');
+                    alert('Ungrouped users paired successfully!');
                     location.reload();
                 } else {
-                    alert('Failed to create group');
+                    alert(result.error || 'Failed to pair ungrouped users');
                 }
             } catch (error) {
-                console.error('Error:', error);
-                alert('An error occurred while creating the group');
+                console.error('Pairing error:', error);
+                alert('An error occurred while pairing ungrouped users');
             }
+        });
+
+        // Delete User
+        document.querySelectorAll('.delete-user').forEach(button => {
+            button.addEventListener('click', async (event) => {
+                const userId = event.target.getAttribute('data-user-id');
+                
+                if (confirm('Are you sure you want to delete this user?')) {
+                    try {
+                        const response = await fetch(`/admin/users/${userId}`, {
+                            method: 'DELETE',
+                            headers: { 'Content-Type': 'application/json' }
+                        });
+                        
+                        const result = await response.json();
+                        
+                        if (response.ok) {
+                            alert('User deleted successfully');
+                            location.reload();
+                        } else {
+                            alert(result.error || 'Failed to delete user');
+                        }
+                    } catch (error) {
+                        console.error('Delete user error:', error);
+                        alert('An error occurred while deleting user');
+                    }
+                }
+            });
         });
     </script>
 </body>

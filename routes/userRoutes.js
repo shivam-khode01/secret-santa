@@ -104,15 +104,33 @@ router.get('/success', (req, res) => {
 // Admin Dashboard
 router.get('/dashboard', isAuthenticated, async (req, res) => {
     try {
-        const users = await User.find().populate('santaFor').populate('group');
-        const groups = await Group.find().populate('members');
-        res.render('admin/dashboard', { title: 'Admin Dashboard', users, groups });
+        // Fetch all users, populate santaFor and group
+        const users = await User.find()
+            .populate('santaFor')
+            .populate({
+                path: 'group',
+                populate: { path: 'members', populate: { path: 'santaFor' } }
+            });
+
+        // Fetch all groups with their members
+        const groups = await Group.find().populate({
+            path: 'members',
+            populate: { path: 'santaFor' }
+        });
+
+        res.render('admin/dashboard', { 
+            title: 'Admin Dashboard', 
+            users, 
+            groups 
+        });
     } catch (err) {
         console.error(err);
-        res.render('error', { title: 'Error', error: 'Could not load dashboard.' });
+        res.render('error', { 
+            title: 'Error', 
+            error: 'Could not load dashboard.' 
+        });
     }
 });
-
 // Pair Users (mounted under /admin, so endpoint becomes /admin/pair)
 router.post('/pair', isAuthenticated, async (req, res) => {
     console.log("DEBUG: /admin/pair route called");
