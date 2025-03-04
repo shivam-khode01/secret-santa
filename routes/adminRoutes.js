@@ -30,6 +30,121 @@ const validateGroupExists = async (req, res, next) => {
     }
 };
 
+// Sophisticated Secret Santa Pairing Algorithm
+async function pairUsersInGroup(groupId) {
+    try {
+        // Find the group and populate its members
+        const group = await Group.findById(groupId).populate('members');
+        
+        if (!group || group.members.length < 2) {
+            throw new Error('Not enough members to pair');
+        }
+
+        // Shuffle members to ensure randomness
+        const shuffledMembers = group.members.sort(() => 0.5 - Math.random());
+        
+        const pairs = [];
+        const usedRecipients = new Set();
+
+        for (let i = 0; i < shuffledMembers.length; i++) {
+            const santa = shuffledMembers[i];
+            
+            // Find a suitable recipient
+            let recipientIndex = (i + 1) % shuffledMembers.length;
+            while (
+                shuffledMembers[recipientIndex]._id.equals(santa._id) || 
+                usedRecipients.has(shuffledMembers[recipientIndex]._id.toString())
+            ) {
+                recipientIndex = (recipientIndex + 1) % shuffledMembers.length;
+            }
+
+            const recipient = shuffledMembers[recipientIndex];
+            
+            // Update santa's recipient
+            santa.santaFor = recipient._id;
+            await santa.save();
+
+            // Track used recipients to prevent duplicates
+            usedRecipients.add(recipient._id.toString());
+
+            pairs.push({
+                santa: santa.name,
+                recipient: recipient.name,
+                santaId: santa._id,
+                recipientId: recipient._id
+            });
+        }
+
+        return pairs;
+    } catch (error) {
+        console.error('Pairing error:', error);
+        throw error;
+    }
+}
+
+// Send Pairing Notifications via Email
+async function sendPairingNotifications(pairs) {
+    for (const pair of pairs) {
+        try {
+            const santa = await User.findById(pair.santaId);
+            const recipient = await User.findById(pair.recipientId);
+
+            // Send email to santa with recipient's wishlist hint
+            await transporter.sendMail({
+                from: process.env.EMAIL_USER,
+                to: santa.email,
+                subject: 'Your Secret Santa Recipient',
+                text: `Hello ${santa.name},\n\nYou are the Secret Santa for ${recipient.name}!\n\nHint: ${recipient.hint || 'No hint provided'}\n\nHappy gifting!`
+            });
+        } catch (error) {
+            console.error(`Failed to send notification for ${pair.santa}:`, error);
+        }
+    }
+}
+
+// Create Admin Action Log
+async function createAdminLog(action, details) {
+    console.log(`Admin Action: ${action}`, details);
+}
+
+// Regenerate Pairs for a Specific Group
+async function regeneratePairsForGroup(groupId) {
+    try {
+        // Clear existing santa assignments
+        await User.updateMany(
+            { group: groupId }, 
+            { $unset: { santaFor: "" } }
+        );
+
+        // Regenerate pairs
+        await pairUsersInGroup(groupId);
+    } catch (error) {
+        console.error('Pair regeneration error:', error);
+        throw error;
+    }
+}
+
+// Regenerate Pairs for All Groups
+async function regeneratePairsForAllGroups() {
+    try {
+        // Clear all santa assignments
+        await User.updateMany({}, { $unset: { santaFor: "" } });
+
+        // Find all groups
+        const groups = await Group.find();
+
+        // Regenerate pairs for each group
+        for (const group of groups) {
+            if (group.members.length >= 2) {
+                await pairUsersInGroup(group._id);
+            }
+        }
+    } catch (error) {
+        console.error('All groups pair regeneration error:', error);
+        throw error;
+    }
+}
+
 // Admin Dashboard with enhanced data retrieval
 router.get('/dashboard', isAuthenticated, async (req, res) => {
     try {
@@ -102,6 +217,107 @@ router.post('/pair-group/:groupId',
         }
     }
 );
+
+// Delete User Route
+router.delete('/users/:id', isAuthenticated, async (req, res) => {
+    try {
+        const userId = req.params.id;
+        
+        // Find and delete the user
+        const deletedUser = await User.findByIdAndDelete(userId);
+        
+        if (!deletedUser) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+        
+        // If the user was part of a group, remove them from the group
+        if (deletedUser.group) {
+            await Group.findByIdAndUpdate(
+                deletedUser.group, 
+                { $pull: { members: userId } }
+            );
+        }
+        
+        res.json({ 
+            message: 'User deleted successfully', 
+            deletedUser 
+        });
+    } catch (err) {
+        console.error('User deletion error:', err);
+        res.status(500).json({ 
+            error: 'Could not delete user',
+            details: err.message 
+        });
+    }
+});
+
+// Pair Ungrouped Users Route
+router.post('/pair-ungrouped', isAuthenticated, async (req, res) => {
+    try {
+        // Find users without a group
+        const ungroupedUsers = await User.find({ group: null });
+        
+        // Check if there are enough users to pair
+        if (ungroupedUsers.length < 2) {
+            return res.status(400).json({ 
+                error: 'Not enough ungrouped users to pair' 
+            });
+        }
+        
+        // Shuffle ungrouped users
+        const shuffledUsers = ungroupedUsers.sort(() => 0.5 - Math.random());
+        
+        // Pair users
+        for (let i = 0; i < shuffledUsers.length; i++) {
+            const santa = shuffledUsers[i];
+            const recipient = shuffledUsers[(i + 1) % shuffledUsers.length];
+            
+            santa.santaFor = recipient._id;
+            await santa.save();
+        }
+        
+        res.json({ 
+            message: 'Ungrouped users paired successfully',
+            pairs: shuffledUsers.map((user, index) => ({
+                santa: user.name,
+                recipient: shuffledUsers[(index + 1) % shuffledUsers.length].name
+            }))
+        });
+    } catch (err) {
+        console.error('Ungrouped users pairing error:', err);
+        res.status(500).json({ 
+            error: 'Could not pair ungrouped users',
+            details: err.message 
+        });
+    }
+});
+
+// Remove User from Group Route
+router.post('/remove-user-from-group', isAuthenticated, async (req, res) => {
+    const { userId, groupId } = req.body;
+    
+    try {
+        // Remove user from group's members
+        await Group.findByIdAndUpdate(
+            groupId, 
+            { $pull: { members: userId } }
+        );
+        
+        // Remove group reference from user
+        await User.findByIdAndUpdate(
+            userId, 
+            { $unset: { group: "" } }
+        );
+        
+        res.json({ message: 'User successfully removed from group' });
+    } catch (err) {
+        console.error('Remove user from group error:', err);
+        res.status(500).json({ 
+            error: 'Could not remove user from group',
+            details: err.message 
+        });
+    }
+});
 
 // Create Group with more comprehensive validation
 router.post('/groups', isAuthenticated, async (req, res) => {
@@ -209,30 +425,5 @@ router.post('/pairs/regenerate', isAuthenticated, async (req, res) => {
         });
     }
 });
-
-// Placeholder functions to be implemented
-async function pairUsersInGroup(groupId) {
-    // Implement sophisticated pairing algorithm
-    // Ensure no repeat pairings, balanced distribution
-    throw new Error('Pairing algorithm not implemented');
-}
-
-async function sendPairingNotifications(pairs) {
-    // Send email notifications to paired users
-    // Implement email sending logic
-}
-
-async function createAdminLog(action, details) {
-    // Create an administrative action log
-    // Useful for auditing and tracking changes
-}
-
-async function regeneratePairsForGroup(groupId) {
-    // Regenerate pairs for a specific group
-}
-
-async function regeneratePairsForAllGroups() {
-    // Regenerate pairs across all groups
-}
 
 module.exports = router;
