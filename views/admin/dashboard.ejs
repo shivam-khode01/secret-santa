@@ -44,6 +44,8 @@
                         <tr>
                             <th>Name</th>
                             <th>Email</th>
+                            <th>Secret Santa For</th>
+                            <th>Secret Santa By</th>
                             <th>Actions</th>
                         </tr>
                     </thead>
@@ -52,6 +54,12 @@
                             <tr>
                                 <td><%= user.name %></td>
                                 <td><%= user.email %></td>
+                                <td><%= user.santaFor ? user.santaFor.name : 'Not Assigned' %></td>
+                                <td><%= 
+                                    users.find(u => u.santaFor && u.santaFor._id.toString() === user._id.toString()) 
+                                    ? users.find(u => u.santaFor && u.santaFor._id.toString() === user._id.toString()).name 
+                                    : 'Not Assigned' 
+                                %></td>
                                 <td>
                                     <button class="btn btn-danger btn-sm delete-user" data-user-id="<%= user._id %>">Delete</button>
                                 </td>
@@ -72,7 +80,7 @@
                 <% groups.forEach(group => { %>
                     <div class="card mb-3">
                         <div class="card-header d-flex justify-content-between align-items-center">
-                            <%= group.name %> 
+                           <b><%= group.name %> </b> 
                             <div>
                                 <button class="btn btn-primary btn-sm pair-group-btn" data-group-id="<%= group._id %>">
                                     Pair Group
@@ -91,6 +99,7 @@
                                         <th>Name</th>
                                         <th>Email</th>
                                         <th>Secret Santa For</th>
+                                        <th>Secret Santa By</th>
                                         <th>Actions</th>
                                     </tr>
                                 </thead>
@@ -100,6 +109,11 @@
                                             <td><%= member.name %></td>
                                             <td><%= member.email %></td>
                                             <td><%= member.santaFor ? member.santaFor.name : 'Not Assigned' %></td>
+                                            <td><%= 
+                                                group.members.find(m => m.santaFor && m.santaFor._id.toString() === member._id.toString()) 
+                                                ? group.members.find(m => m.santaFor && m.santaFor._id.toString() === member._id.toString()).name 
+                                                : 'Not Assigned' 
+                                            %></td>
                                             <td>
                                                 <button class="btn btn-danger btn-sm remove-user-from-group" 
                                                     data-user-id="<%= member._id %>" 
