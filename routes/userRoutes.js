@@ -12,10 +12,10 @@ router.get('/', (req, res) => {
 
 // Show Registration Form
 router.get('/register', (req, res) => {
-    res.render('register', { title: 'register', error: 'register route not found !!!' });
+    res.render('register', { title: 'Register', error: null });
 });
 
-// Handle RegistrationS*0
+// Handle Registration
 router.post('/register', async (req, res) => {
     const { name, email, password, wishlist, hint, groupCode } = req.body;
 
@@ -131,6 +131,7 @@ router.get('/dashboard', isAuthenticated, async (req, res) => {
         });
     }
 });
+
 // Pair Users (mounted under /admin, so endpoint becomes /admin/pair)
 router.post('/pair', isAuthenticated, async (req, res) => {
     console.log("DEBUG: /admin/pair route called");
@@ -192,6 +193,56 @@ router.delete('/groups/:id', isAuthenticated, async (req, res) => {
     } catch (err) {
         console.error("DEBUG: Error deleting group:", err);
         res.status(500).json({ error: 'Could not delete group' });
+    }
+});
+
+// Remove User from Group
+router.post('/remove-user-from-group', isAuthenticated, async (req, res) => {
+    const { userId, groupId } = req.body;
+    try {
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        const group = await Group.findById(groupId);
+        if (!group) {
+            return res.status(404).json({ error: 'Group not found' });
+        }
+
+        // Remove user from group members
+        group.members.pull(userId);
+        await group.save();
+
+        // Remove group reference from user
+        user.group = null;
+        await user.save();
+
+        res.json({ message: 'User removed from group successfully' });
+    } catch (err) {
+        console.error("DEBUG: Error removing user from group:", err);
+        res.status(500).json({ error: 'Could not remove user from group' });
+    }
+});
+
+// Pair Ungrouped Users
+router.post('/pair-ungrouped', isAuthenticated, async (req, res) => {
+    try {
+        const ungroupedUsers = await User.find({ group: null });
+        const shuffledUsers = ungroupedUsers.sort(() => 0.5 - Math.random());
+
+        for (let i = 0; i < shuffledUsers.length; i++) {
+            const santa = shuffledUsers[i];
+            const recipient = shuffledUsers[(i + 1) % shuffledUsers.length];
+            santa.santaFor = recipient._id;
+            await santa.save();
+        }
+
+        const updatedUsers = await User.find({ group: null }).populate('santaFor');
+        res.json({ users: updatedUsers });
+    } catch (err) {
+        console.error("DEBUG: Error in pairing ungrouped users:", err);
+        res.status(500).json({ error: 'Could not pair ungrouped users.' });
     }
 });
 
