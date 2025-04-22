@@ -4,6 +4,9 @@
 
 The **Secret Santa** application is a fun and interactive way to organize gift exchanges among friends, family, or colleagues during the holiday season. This application allows users to create groups, manage participants, and randomly assign gift givers (Santas) to recipients.
 
+##OUTPUT
+![image](https://github.com/user-attachments/assets/81da4432-abef-4a28-afe8-7c9f2f804bd6)
+
 ## Table of Contents
 
 - [Features](#features)
